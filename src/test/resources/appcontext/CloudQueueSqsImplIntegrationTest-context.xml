@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="credentialsProvider" class="com.amazonaws.auth.profile.ProfileCredentialsProvider">
+        <constructor-arg index="0">
+            <bean class="com.amazonaws.auth.profile.ProfilesConfigFile">
+                <constructor-arg value="credentials"/>
+            </bean>
+        </constructor-arg>
+        <constructor-arg value="lab9"/>
+    </bean>
+
+    <bean id="sqsClientConfiguration" class="com.amazonaws.ClientConfiguration">
+        <!-- who put this value here? it's interfering with the long polling! -->
+        <property name="socketTimeout" value="10000"/>
+
+        <!-- would you like more retries -->
+        <!--<property name="maxErrorRetry" value="5"/>-->
+    </bean>
+
+    <bean id="awsRegion" class="com.amazonaws.regions.RegionUtils" factory-method="getRegion">
+        <constructor-arg index="0" value="eu-west-1"/>
+    </bean>
+    <bean id="rawSqsClient" factory-bean="awsRegion" factory-method="createClient">
+        <constructor-arg index="0" value="com.amazonaws.services.sqs.AmazonSQSClient"/>
+        <constructor-arg index="1" ref="credentialsProvider"/>
+        <constructor-arg index="2" ref="sqsClientConfiguration"/>
+    </bean>
+
+    <bean id="sqsHelper" class="amazon.cloudshape.lab9.queue.sqs.SQSHelper">
+        <property name="sqsClient" ref="rawSqsClient"/>
+    </bean>
+
+    <bean id="catsPayloadConverter" class="amazon.cloudshape.lab9.serialization.PayloadConverterImpl">
+        <property name="clazz" value="amazon.cloudshape.lab9.model.CatInfo"/>
+    </bean>
+
+    <bean id="queueName" class="java.lang.String">
+        <!-- TODO put the actual queue name here-->
+        <constructor-arg value="qwikLABS-|your-user-name|-queue"/>
+    </bean>
+    <bean id="queueUrl" factory-bean="sqsHelper" factory-method="getQueueUrl">
+        <constructor-arg ref="queueName"/>
+    </bean>
+
+    <bean id="catsSqsQueue" class="amazon.cloudshape.lab9.queue.sqs.CloudQueueSqsImpl">
+        <property name="payloadConverter" ref="catsPayloadConverter"/>
+        <property name="sqsClient" ref="rawSqsClient"/>
+        <property name="queueUrl" ref="queueUrl"/>
+    </bean>
+
+</beans>
